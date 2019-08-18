@@ -8,31 +8,7 @@ import abc
 from terminaltables import AsciiTable
 import requests
 
-APP_NAME = 'DVMNTutorialApp/1.0 (rk.inwork@gmail.com)'
-
-HH_HEADERS = {
-    'User-Agent': APP_NAME,
-}
-
-SJ_HEADERS = {
-    'User-Agent': APP_NAME
-}
-
-TOP_LANGUAGES = ['JavaScript',
-                 'Python',
-                 'Java',
-                 'C++',
-                 'C',
-                 'PHP',
-                 'C#',
-                 'Shell',
-                 'Go',
-                 'TypeScript',
-                 'Ruby',
-                 'Objective-C',
-                 'Swift',
-                 'Kotlin',
-                 '1С']
+APP_NAME_DEFAULT = 'DVMNTutorialApp/1.0 (rk.inwork@gmail.com)'
 
 
 class BaseStatisticRenderer(metaclass=ABCMeta):
@@ -75,17 +51,16 @@ class AsciiTableStatisticRenderer(BaseStatisticRenderer):
 class StatisticsFetcher(metaclass=ABCMeta):
     _statistics = {}
 
-    def __init__(self, api_config, renderer, search_parameter_name='text', pages_to_process=None):
+    def __init__(self, api_config, search_parameter_name='text', pages_to_process=None):
         self.api_config = api_config
         self.search_parameter_name = search_parameter_name
-        self.renderer = renderer
         self.pages_to_process = pages_to_process
 
     def calculate_statistics_languages(self, languages):
         self._statistics = {}
         for language in languages:
             self.api_config[self.search_parameter_name] = f"программист {language}"
-            self._statistics[language] = self.vacancy_statistics()
+            self._statistics[language] = self.get_vacancy_statistics()
             time.sleep(0.5)
 
         print('\r', end='', flush=True)
@@ -94,7 +69,7 @@ class StatisticsFetcher(metaclass=ABCMeta):
     def raw_statistics(self):
         return self._statistics
 
-    def vacancy_statistics(self):
+    def get_vacancy_statistics(self):
         all_vacancies_salaries = []
         for vacancy in self.fetch_vacancies():
             all_vacancies_salaries.append(self.predict_rub_salary(vacancy))
@@ -126,19 +101,19 @@ class StatisticsFetcher(metaclass=ABCMeta):
     def predict_rub_salary(self, vacancy):
         pass
 
-    def render_data(self):
-        if self._statistics:
-            self.renderer(self._statistics)
-        else:
-            print("Nothing to render")
+    @property
+    def statistics(self):
+        return self._statistics
 
 
 class HHFetcher(StatisticsFetcher):
     hh_host = 'https://api.hh.ru/'
 
-    def __init__(self, api_config, renderer, search_parameter_name='text', headers=None, **kwargs):
-        self.headers = headers or HH_HEADERS
-        super().__init__(api_config, renderer, search_parameter_name, **kwargs)
+    def __init__(self, api_config, app_name=None, search_parameter_name='text', **kwargs):
+        self.headers = {
+            'User-Agent': app_name or os.getenv('DVMN_APP_NAME', APP_NAME_DEFAULT)
+        }
+        super().__init__(api_config, search_parameter_name, **kwargs)
 
     def predict_rub_salary(self, vacancy):
         salary_description = vacancy.get('salary', None)
@@ -156,13 +131,14 @@ class HHFetcher(StatisticsFetcher):
             response = requests.get(endpoint, params={**self.api_config, 'page': page}, headers=self.headers)
             response.raise_for_status()
             response_dict = response.json()
+            print("\r" + " " * 100, end="", flush=True)
             print(f"\r HH process page {response_dict['page']} from {response_dict['pages']}", end="", flush=True)
 
             yield from response_dict['items']
 
             # for demo purposes
             if self.pages_to_process:
-                if page >= self.pages_to_process:
+                if page >= self.pages_to_process + 1:
                     break
 
             if page >= response_dict['pages']:
@@ -172,9 +148,12 @@ class HHFetcher(StatisticsFetcher):
 class SJFetcher(StatisticsFetcher):
     host = 'https://api.superjob.ru/2.0/'
 
-    def __init__(self, api_config, renderer, search_parameter_name='text', headers=None, **kwargs):
-        self.headers = headers or {**SJ_HEADERS, **{'X-Api-App-Id': os.environ.get("SJAPIID")}}
-        super().__init__(api_config, renderer, search_parameter_name, **kwargs)
+    def __init__(self, api_config, app_name=None, search_parameter_name='text', **kwargs):
+        self.headers = {
+            'User-Agent': app_name or os.getenv('DVMN_APP_NAME', APP_NAME_DEFAULT),
+            'X-Api-App-Id': os.environ.get("SUPERJOB_API_ID")}
+
+        super().__init__(api_config, search_parameter_name, **kwargs)
 
     def fetch_vacancies(self):
         endpoint = os.path.join(self.host, 'vacancies')
@@ -183,6 +162,7 @@ class SJFetcher(StatisticsFetcher):
             response.raise_for_status()
 
             response_dict = response.json()
+            print("\r" + " "*100, end="", flush=True)
             print(f"\r SJ Process link '{self.api_config[self.search_parameter_name]}' page: {page + 1}", end="",
                   flush=True)
             time.sleep(1)

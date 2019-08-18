@@ -19,13 +19,13 @@ To get data from SuperJob you should get API key from [api.superjob.ru](https://
 assign it to environment variable or add to `.env` file
 
 ```console
-foo@bar: dvmn_salary]$ EXPORT SJAPIID=secret_token
+foo@bar: dvmn_salary] EXPORT SUPERJOB_API_ID=secret_token
 ```
 
 or
 
 ```console
-foo@bar: dvmn_salary]$ echo SJAPIID=secret_token > .env
+foo@bar: dvmn_salary] echo SUPERJOB_API_ID=secret_token > .env
 ```
 
 
@@ -34,19 +34,19 @@ foo@bar: dvmn_salary]$ echo SJAPIID=secret_token > .env
 Take a round trip. Script process only 5 languages and 3 pages: 
 
 ```console
-foo@bar: dvmn_salary]$ python3 salary_extractor.py -d
+foo@bar: dvmn_salary] python3 salary_extractor.py -d
 ```
 
 
 To get all possible statistics (this can take at least half an hour to all done):
 ```console
-foo@bar: dvmn_salary]$ python3 salary_extractor.py
+foo@bar: dvmn_salary] python3 salary_extractor.py
 ```
 
 Custom limitation:
 
 ```console
-foo@bar: dvmn_salary]$ python3 salary_extractor.py -l 4 -p 2
+foo@bar: dvmn_salary] python3 salary_extractor.py -l 4 -p 2
 ```
 
 
