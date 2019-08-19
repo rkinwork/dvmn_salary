@@ -28,6 +28,12 @@ or
 foo@bar: dvmn_salary] echo SUPERJOB_API_ID=secret_token > .env
 ```
 
+Please set the name of the application:
+
+```console
+foo@bar: dvmn_salary] EXPORT DVMN_APP_NAME='My Super Fancy Name'
+```
+
 
 ## How To Use
 
@@ -54,17 +60,66 @@ foo@bar: dvmn_salary] python3 salary_extractor.py -l 4 -p 2
 
 Not enough statistics?
 
-Add you favorite searching job site. Just inherit `StatisticsFetcher` class
-and implement abstract methods
+Add you favorite searching job site. Just implement abstract method `_fetch_vacancies_salaries` 
+from `BaseStatisticsFetcher`
 
-```
-class YourFavSiteFetcher(StatisticsFetcher):
-    
-    def predict_rub_salary(self, vacancy):
-        """pass min and max vacancy salary to self.predict_salary_common method"""
+This method should return tuple with min and max salaries - unknown values we should substitute with `None`
 
-    def fetch_vacancies(self):
-        """implement vacancy iterator"""
+```python
+import itertools
+import time
+import os
+import datetime
+
+import requests
+from salary_extractor_lib import BaseStatisticsFetcher, TOP_LANGUAGES
+
+
+
+class YourFavSiteFetcher(BaseStatisticsFetcher):
+    host = 'https://api.supersite.ru/2.0/'
+
+    def __init__(self, api_config, app_name=None, **kwargs):
+        # add headers if you want
+        self.headers = {
+            'User-Agent': self._get_application_name(app_name)
+        }
+
+        super().__init__(api_config, **kwargs)
+
+
+def _fetch_vacancies_salaries(self, api_config):
+    endpoint = os.path.join(self.host, 'vacancies')
+    for page in itertools.count():
+        response = requests.get(endpoint, params={**api_config, 'page': page}, headers=self.headers)
+        response.raise_for_status()
+
+        response_dict = response.json()
+        time.sleep(1)
+        for vacancy in response_dict['objects']:
+            if vacancy['currency'] != 'rub':
+                yield None, None
+                continue
+            yield vacancy['payment_from'], vacancy['payment_to']
+
+        # Don't forget to add stoper
+        if self.pages_to_process:
+            if page == self.pages_to_process:
+                break
+
+        if not response_dict['more']:
+            break
+
+if __name__ == '__main__':
+    query = {'town': 'moscow',
+             'date_published_from': int((datetime.datetime.now() - datetime.timedelta(days=30)).timestamp()),
+             'date_published_to': int(datetime.datetime.now().timestamp())
+            }
+    yff = YourFavSiteFetcher(query, app_name='my super app name', pages_to_process=2)
+    print(yff.calculate_statistics_languages(TOP_LANGUAGES[:2]).statistics)
+
+
+
 ```
 
 ## License
